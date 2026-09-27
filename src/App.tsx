@@ -11,7 +11,7 @@ import { OrthogonalityMatrix } from './components/OrthogonalityMatrix';
 import { DataBreachChecker } from './components/DataBreachChecker';
 import { GoldenSecurityRules } from './components/GoldenSecurityRules';
 import { HeroSection } from './components/HeroSection';
-import { AppRoute, getRouteFromHash, navigateToRoute } from './utils/routes';
+import { AppRoute, getRouteFromHash, navigateToRoute, getIdFromHash } from './utils/routes';
 import { performSafeAnalysis } from './utils/analyzeClient';
 import { ShieldCheck, Lock, AlertCircle, ArrowRight, Activity, ShieldAlert, BookOpen, Compass } from 'lucide-react';
 
@@ -24,12 +24,69 @@ export default function App() {
   const [redactPii, setRedactPii] = useState<boolean>(true);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
 
-  // Listen to hashchange events for client-side routing
+  // Check and load deep-link Case ID from URL hash or query params
+  const checkAndApplyDeepLinkId = (historyList?: AnalysisResult[]) => {
+    const targetId = getIdFromHash(window.location.hash);
+    if (!targetId) return false;
+
+    const cleanId = targetId.trim().toUpperCase();
+    const candidateList = historyList || history;
+
+    let record = candidateList.find(item => item.id.toUpperCase() === cleanId);
+    if (!record) {
+      try {
+        const raw = localStorage.getItem('trustlens_history');
+        if (raw) {
+          const parsed: AnalysisResult[] = JSON.parse(raw);
+          record = parsed.find(item => item.id.toUpperCase() === cleanId);
+        }
+      } catch (e) {
+        console.warn('Deep link history parse error:', e);
+      }
+    }
+
+    if (record) {
+      setCurrentResult(record);
+      setActiveRoute('scan');
+      return true;
+    }
+    return false;
+  };
+
+  // Case ID quick lookup handler for UnifiedWorkspace & History
+  const handleLookupCaseId = (lookupId: string): boolean => {
+    const cleanId = lookupId.trim().toUpperCase();
+    if (!cleanId) return false;
+
+    let record = history.find(item => item.id.toUpperCase() === cleanId);
+    if (!record) {
+      try {
+        const raw = localStorage.getItem('trustlens_history');
+        if (raw) {
+          const parsed: AnalysisResult[] = JSON.parse(raw);
+          record = parsed.find(item => item.id.toUpperCase() === cleanId);
+        }
+      } catch (e) {
+        console.warn('Lookup storage parse error:', e);
+      }
+    }
+
+    if (record) {
+      setCurrentResult(record);
+      setActiveRoute('scan');
+      window.location.hash = `#/scan?id=${cleanId}`;
+      return true;
+    }
+    return false;
+  };
+
+  // Listen to hashchange events for client-side routing & deep-link IDs
   useEffect(() => {
     const handleHashChange = () => {
       const route = getRouteFromHash(window.location.hash);
       setActiveRoute(route);
       setErrorMessage(null);
+      checkAndApplyDeepLinkId();
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -40,7 +97,7 @@ export default function App() {
     }
 
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [history]);
 
   const navigate = (route: AppRoute) => {
     setActiveRoute(route);
@@ -48,17 +105,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Load history & preferences from local storage
+  // Load history & preferences from local storage and resolve deep links
   useEffect(() => {
     try {
       const savedHistory = localStorage.getItem('trustlens_history');
+      let loadedHistory: AnalysisResult[] = [];
       if (savedHistory) {
-        setHistory(JSON.parse(savedHistory));
+        loadedHistory = JSON.parse(savedHistory);
+        setHistory(loadedHistory);
       }
       const savedPiiPref = localStorage.getItem('trustlens_pii_pref');
       if (savedPiiPref !== null) {
         setRedactPii(savedPiiPref === 'true');
       }
+      // Check deep link immediately after loading history
+      checkAndApplyDeepLinkId(loadedHistory);
     } catch (e) {
       console.warn('Failed to load local storage state:', e);
     }
@@ -139,8 +200,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-sans selection:bg-indigo-900 selection:text-white relative">
-      {/* Subtle, Sophisticated Radial Ambient Lighting Overlays */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+      {/* Subtle, Sophisticated Radial Ambient Lighting Overlays (Hidden in Print) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 no-print">
         <div className="absolute -top-32 left-1/4 w-[750px] h-[450px] bg-indigo-500/[0.04] blur-[140px] rounded-full" />
         <div className="absolute top-1/3 right-1/4 w-[650px] h-[450px] bg-sky-500/[0.035] blur-[140px] rounded-full" />
         <div className="absolute bottom-1/4 left-1/3 w-[550px] h-[350px] bg-emerald-500/[0.025] blur-[130px] rounded-full" />
@@ -225,6 +286,7 @@ export default function App() {
                 isLoading={isLoading}
                 redactPii={redactPii}
                 setRedactPii={handleTogglePii}
+                onLookupCaseId={handleLookupCaseId}
               />
             )}
           </div>
@@ -332,7 +394,7 @@ export default function App() {
       </div>
 
       {/* Understated, Ultra-Refined Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#080c14] mt-12 py-6 no-print transition-colors">
+      <footer id="footer" className="border-t border-slate-800/80 bg-[#080c14] mt-12 py-6 no-print transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-sky-400 stroke-[2]" />

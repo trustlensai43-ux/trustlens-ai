@@ -19,7 +19,8 @@ import {
   Eye,
   EyeOff,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 
 interface UnifiedWorkspaceProps {
@@ -27,6 +28,7 @@ interface UnifiedWorkspaceProps {
   isLoading: boolean;
   redactPii: boolean;
   setRedactPii: (val: boolean) => void;
+  onLookupCaseId?: (caseId: string) => boolean;
 }
 
 export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
@@ -34,10 +36,15 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
   isLoading,
   redactPii,
   setRedactPii,
+  onLookupCaseId,
 }) => {
   const [modality, setModality] = useState<ModalityType>('text');
   const [sampleFilter, setSampleFilter] = useState<'all' | 'suspicious' | 'benign_human' | 'benign_ai'>('all');
   const [showPiiPreview, setShowPiiPreview] = useState(false);
+
+  // Case ID Quick Lookup State
+  const [caseIdQuery, setCaseIdQuery] = useState('');
+  const [lookupFeedback, setLookupFeedback] = useState<string | null>(null);
 
   // Text inputs
   const [textInput, setTextInput] = useState('');
@@ -265,6 +272,24 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
     }
   };
 
+  const handleLookupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = caseIdQuery.trim();
+    if (!query) {
+      setLookupFeedback('Vui lòng nhập mã hồ sơ giám định cần tra cứu.');
+      return;
+    }
+
+    if (onLookupCaseId) {
+      const found = onLookupCaseId(query);
+      if (!found) {
+        setLookupFeedback('Không tìm thấy hồ sơ mang mã này trong nhật ký giám định trên thiết bị. Vui lòng kiểm tra lại.');
+      } else {
+        setLookupFeedback(null);
+      }
+    }
+  };
+
   const modalityTabs = [
     { id: 'text' as const, label: 'SMS / Tin Nhắn', icon: MessageSquare },
     { id: 'email' as const, label: 'Thư Điện Tử', icon: Mail },
@@ -284,6 +309,56 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
         <p className="text-xs sm:text-sm text-slate-400 font-normal leading-relaxed">
           Đánh giá minh bạch theo 2 góc nhìn độc lập: <strong className="text-rose-400 font-semibold">Nguy cơ Lừa đảo (0–100%)</strong> và <strong className="text-sky-300 font-semibold">Dấu vết do AI tạo ra (0–100%)</strong> trên tin nhắn, email, cuộc gọi, đường link web, ảnh và video.
         </p>
+      </div>
+
+      {/* QUICK CASE ID LOOKUP PORTAL BAR */}
+      <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/30 hover:border-indigo-500/50 rounded-2xl p-4 sm:p-5 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-all">
+        <form onSubmit={handleLookupSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300 shrink-0">
+            <Search className="w-4 h-4 text-sky-400 stroke-[2.5]" />
+            <span>Tra cứu mã hồ sơ:</span>
+          </div>
+
+          <div className="relative flex-1">
+            <input
+              type="text"
+              id="input-case-id-lookup"
+              value={caseIdQuery}
+              onChange={(e) => {
+                setCaseIdQuery(e.target.value);
+                if (lookupFeedback) setLookupFeedback(null);
+              }}
+              placeholder="Nhập mã hồ sơ giám định (VD: TL-182491-R0K3)..."
+              className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 font-mono tracking-wide focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50 transition-all"
+            />
+          </div>
+
+          <button
+            type="submit"
+            id="btn-case-id-lookup"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-xs whitespace-nowrap flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Tra Cứu</span>
+          </button>
+        </form>
+
+        {/* Feedback message if lookup failed */}
+        {lookupFeedback && (
+          <div className="mt-3 p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{lookupFeedback}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLookupFeedback(null)}
+              className="text-rose-400 hover:text-rose-200 text-[11px] underline shrink-0 cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Demonstration Test Bank */}

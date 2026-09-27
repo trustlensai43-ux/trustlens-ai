@@ -224,6 +224,28 @@ export const DataBreachChecker: React.FC = () => {
   // Dual-Panel Navigation: Account Breach vs Text Privacy Auditor vs Playbook
   const [activeSubTab, setActiveSubTab] = useState<'account_breach' | 'text_audit' | 'playbook'>('account_breach');
 
+  // Smooth-scrolling tab switch handlers
+  const handleSwitchToTextAudit = () => {
+    setActiveSubTab('text_audit');
+    setTimeout(() => {
+      const el = document.getElementById('section-prepublish-audit') || document.getElementById('textarea-prepublish-audit');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
+  };
+
+  const handleSwitchToAccountBreach = (type?: 'email' | 'password' | 'phone') => {
+    setActiveSubTab('account_breach');
+    if (type) setAccountLookupType(type);
+    setTimeout(() => {
+      const el = document.getElementById('section-account-breach') || document.getElementById('input-email-breach') || document.getElementById('tab-account-breach');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
+  };
+
   // PANEL A: Account Breach Lookup State
   const [accountLookupType, setAccountLookupType] = useState<'email' | 'password' | 'phone'>('email');
   
@@ -537,7 +559,7 @@ export const DataBreachChecker: React.FC = () => {
         <div className="mt-5 pt-4 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Column A Explanation */}
           <div 
-            onClick={() => setActiveSubTab('account_breach')}
+            onClick={() => handleSwitchToAccountBreach()}
             className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex items-start gap-3 ${
               activeSubTab === 'account_breach' 
                 ? 'bg-sky-950/40 border-sky-600/80 ring-1 ring-sky-500/50 shadow-lg shadow-sky-950/40' 
@@ -564,7 +586,7 @@ export const DataBreachChecker: React.FC = () => {
 
           {/* Column B Explanation */}
           <div 
-            onClick={() => setActiveSubTab('text_audit')}
+            onClick={handleSwitchToTextAudit}
             className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex items-start gap-3 ${
               activeSubTab === 'text_audit' 
                 ? 'bg-purple-950/40 border-purple-600/80 ring-1 ring-purple-500/50 shadow-lg shadow-purple-950/40' 
@@ -657,7 +679,7 @@ export const DataBreachChecker: React.FC = () => {
           PANEL A: ACCOUNT BREACH HISTORY LOOKUP [EXTERNAL_SOURCE / HIBP]
           ========================================================================= */}
       {activeSubTab === 'account_breach' && (
-        <div className="space-y-6">
+        <div id="section-account-breach" className="space-y-6">
           {/* Main Account Breach Lookup Card */}
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-all duration-300">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
@@ -1689,8 +1711,9 @@ export const DataBreachChecker: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setActiveSubTab('text_audit')}
-              className="px-3.5 py-1.5 rounded-lg bg-purple-950 hover:bg-purple-900 border border-purple-700 text-purple-200 text-xs font-medium flex items-center gap-1.5 self-start sm:self-center shrink-0 transition-colors"
+              id="btn-bridge-to-text-audit"
+              onClick={handleSwitchToTextAudit}
+              className="px-3.5 py-1.5 rounded-lg bg-purple-950 hover:bg-purple-900 border border-purple-700 text-purple-200 text-xs font-medium flex items-center gap-1.5 self-start sm:self-center shrink-0 transition-colors cursor-pointer"
             >
               <span>Chuyển sang Mục B (Quét Văn Bản)</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1703,7 +1726,7 @@ export const DataBreachChecker: React.FC = () => {
           PANEL B: PRE-PUBLISH TEXT PRIVACY AUDITOR [AI_HEURISTIC]
           ========================================================================= */}
       {activeSubTab === 'text_audit' && (
-        <div className="space-y-5">
+        <div id="section-prepublish-audit" className="space-y-5">
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-all duration-300">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
               <div>
@@ -1754,8 +1777,8 @@ export const DataBreachChecker: React.FC = () => {
               <button
                 type="button"
                 id="btn-switch-to-account-breach"
-                onClick={() => setActiveSubTab('account_breach')}
-                className="px-3 py-1.5 rounded-md bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 text-[11px] font-medium flex items-center gap-1 self-start sm:self-center shrink-0 transition-colors"
+                onClick={() => handleSwitchToAccountBreach('email')}
+                className="px-3 py-1.5 rounded-md bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 text-[11px] font-medium flex items-center gap-1 self-start sm:self-center shrink-0 transition-colors cursor-pointer"
               >
                 <span>Tra cứu Email bị rò rỉ (Mục A)</span>
                 <ArrowRight className="w-3 h-3" />

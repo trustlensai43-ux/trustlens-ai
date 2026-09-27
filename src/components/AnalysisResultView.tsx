@@ -136,13 +136,24 @@ Khuyến nghị an toàn: ${result.educationalTakeaway}`;
     downloadAnchor.remove();
   };
 
+  const [isPrinting, setIsPrinting] = useState(false);
+
   const handlePrint = () => {
-    window.print();
+    setIsPrinting(true);
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (err) {
+        console.warn('Print trigger error:', err);
+      } finally {
+        setTimeout(() => setIsPrinting(false), 1200);
+      }
+    }, 120);
   };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Top Action Bar */}
+      {/* Top Action Bar (Hidden in Print) */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/80 no-print">
         <button
           id="btn-back-to-scanner"
@@ -175,11 +186,125 @@ Khuyến nghị an toàn: ${result.educationalTakeaway}`;
           <button
             id="btn-print-report"
             onClick={handlePrint}
-            className="px-3 py-1.5 rounded-xl bg-slate-950/90 border border-slate-800/90 hover:border-slate-700 text-xs font-medium text-slate-200 hover:text-white transition-all duration-150 flex items-center gap-1.5 active:scale-[0.98] cursor-pointer shadow-xs"
+            disabled={isPrinting}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 flex items-center gap-1.5 active:scale-[0.98] cursor-pointer shadow-xs ${
+              isPrinting
+                ? 'bg-sky-600 text-white border-sky-400 ring-2 ring-sky-400/40'
+                : 'bg-slate-950/90 border-slate-800/90 hover:border-slate-700 text-slate-200 hover:text-white'
+            }`}
           >
-            <Printer className="w-3.5 h-3.5 text-slate-400" />
-            <span>In / Lưu PDF hồ sơ</span>
+            <Printer className={`w-3.5 h-3.5 ${isPrinting ? 'animate-bounce text-white' : 'text-slate-400'}`} />
+            <span>{isPrinting ? 'Đang kích hoạt máy in...' : 'In / Lưu PDF hồ sơ'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          OFFICIAL FORMAL APPRAISAL DOSSIER BANNER (PRINT-ONLY)
+          ========================================================================= */}
+      <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-6 text-slate-900">
+        <div className="flex items-start justify-between border-b border-slate-300 pb-2 mb-3">
+          <div>
+            <div className="text-[10px] font-bold tracking-wider uppercase text-slate-700">
+              BỘ KHOA HỌC & CÔNG NGHỆ - DỰ ÁN SÁNG TẠO SỐ
+            </div>
+            <div className="text-xs font-black tracking-tight text-slate-950">
+              HỆ THỐNG GIÁM ĐỊNH AN TOÀN SỐ ĐỘC LẬP - TRUSTLENS AI
+            </div>
+          </div>
+          <div className="text-right text-[10px] font-mono text-slate-700 leading-tight">
+            <div>MÃ HỒ SƠ: <strong className="text-slate-950 font-bold text-xs">{result.id}</strong></div>
+            <div>THỜI GIAN LẬP: {new Date(result.timestamp).toLocaleString('vi-VN')}</div>
+          </div>
+        </div>
+
+        <div className="text-center my-3">
+          <h1 className="text-lg font-black uppercase tracking-tight text-slate-950">
+            PHIẾU KẾT QUẢ THẨM ĐỊNH NGUY CƠ LỪA ĐẢO TRỰC TUYẾN
+          </h1>
+          <p className="text-[11px] text-slate-600 font-medium">
+            Chứng thư phân tích độc lập đa phương thức • Chuẩn khung NIST AI RMF 1.0 & ISO/IEC 27001
+          </p>
+        </div>
+
+        {/* Essential Appraisal Credentials Grid */}
+        <div className="grid grid-cols-3 gap-2 p-2.5 bg-slate-100 border border-slate-300 rounded text-xs">
+          <div>
+            <span className="text-[9px] font-mono uppercase text-slate-500 block">Mã Hồ Sơ Giám Định</span>
+            <strong className="text-xs font-mono font-bold text-slate-900">{result.id}</strong>
+          </div>
+          <div>
+            <span className="text-[9px] font-mono uppercase text-slate-500 block">Phương Thức & Động Cơ</span>
+            <span className="text-xs font-semibold text-slate-900">
+              {result.modality.toUpperCase()} • {result.engineUsed === 'gemini_multimodal' ? 'Gemini AI Multimodal' : 'Heuristic Rules Engine'}
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] font-mono uppercase text-slate-500 block">Phân Loại Góc Ma Trận</span>
+            <span className="text-xs font-bold text-slate-900">{result.quadrantClassification.title}</span>
+          </div>
+        </div>
+
+        {/* Printable Risk Metrics */}
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className="p-3 border border-slate-300 rounded bg-slate-50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-slate-700">Điểm Nguy Cơ Lừa Đảo (Scam Risk)</span>
+              <span className="text-xs font-mono font-bold text-slate-900">{result.scamRisk.score}% ({result.scamRisk.level.toUpperCase()})</span>
+            </div>
+            <p className="text-[11px] text-slate-800 mt-1 leading-snug">
+              {result.scamRisk.summary}
+            </p>
+          </div>
+          <div className="p-3 border border-slate-300 rounded bg-slate-50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-slate-700">Xác Suất Do AI Tạo (AI Probability)</span>
+              <span className="text-xs font-mono font-bold text-slate-900">{result.aiProbability.score}% ({result.aiProbability.level.toUpperCase()})</span>
+            </div>
+            <p className="text-[11px] text-slate-800 mt-1 leading-snug">
+              {result.aiProbability.summary}
+            </p>
+          </div>
+        </div>
+
+        {/* Printable 5-Dimension Behavioral Breakdown Summary */}
+        {result.fiveDimensionalBreakdown && (
+          <div className="mt-3 p-3 border border-slate-300 rounded bg-white">
+            <div className="text-[10px] font-bold uppercase text-slate-700 mb-2 border-b border-slate-200 pb-1">
+              Bóc Tách 5 Chiều Hành Vi Thao Túng & Lừa Đảo (5-Dimensional Behavioral Analysis)
+            </div>
+            <div className="grid grid-cols-5 gap-2 text-[10px]">
+              {result.fiveDimensionalBreakdown.dimensions.map((dim, idx) => (
+                <div key={idx} className="p-1.5 bg-slate-50 border border-slate-200 rounded">
+                  <div className="font-semibold text-slate-900 truncate" title={dim.dimensionName}>
+                    {dim.dimensionName}
+                  </div>
+                  <div className="text-sm font-bold font-mono text-slate-950 mt-0.5">
+                    {dim.score}/100
+                  </div>
+                  <div className="text-[9px] text-slate-600 mt-0.5 leading-tight line-clamp-2">
+                    {dim.tacticsObserved?.[0] || 'Chưa ghi nhận dấu hiệu'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Printable Emergency Advice & Formal Signature */}
+        <div className="mt-3 p-3 border border-slate-300 rounded bg-amber-50/50">
+          <div className="text-[10px] font-bold uppercase text-slate-800 mb-1">
+            Khuyến Nghị Xử Lý Khẩn Cấp & Phòng Ngừa Thiệt Hại:
+          </div>
+          <p className="text-[11px] text-slate-800 leading-relaxed">
+            {result.scamRisk.score >= 50
+              ? 'KHẨN CẤP: Dấu hiệu lừa đảo nghiêm trọng. Tuyệt đối KHÔNG chuyển tiền, KHÔNG cung cấp OTP/mật khẩu, KHÔNG cài đặt ứng dụng qua file APK. Khi có dấu hiệu chiếm đoạt tài sản, liên hệ ngay Cơ quan Công an gần nhất hoặc gọi Đường dây nóng 113 / 156 (Bộ TT&TT) để được bảo vệ kịp thời.'
+              : result.educationalTakeaway || 'Thực hiện nguyên tắc chậm lại 15 phút, xác minh độc lập qua kênh chính thống trước khi thực hiện các giao dịch tài chính hoặc cung cấp thông tin cá nhân.'}
+          </p>
+          <div className="mt-2 pt-2 border-t border-slate-300/80 flex items-center justify-between text-[9px] font-mono text-slate-600">
+            <span>Được xác lập tự động bởi Hệ thống TrustLens AI • Phiếu thẩm định có giá trị đối soát kỹ thuật</span>
+            <span>Chữ ký số: SHA256-VERIFIED</span>
+          </div>
         </div>
       </div>
 

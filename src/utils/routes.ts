@@ -32,3 +32,24 @@ export function getRouteFromHash(hash: string): AppRoute {
 export function navigateToRoute(route: AppRoute) {
   window.location.hash = ROUTE_HASHES[route];
 }
+
+export function getIdFromHash(hash: string): string | null {
+  try {
+    const queryIdx = hash.indexOf('?');
+    if (queryIdx !== -1) {
+      const queryString = hash.slice(queryIdx + 1);
+      const params = new URLSearchParams(queryString);
+      const id = params.get('id');
+      if (id) return id.trim();
+    }
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (id) return id.trim();
+    }
+  } catch (e) {
+    console.warn('Failed to parse ID from URL:', e);
+  }
+  return null;
+}
+
