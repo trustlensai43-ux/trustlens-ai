@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AnalysisResult } from '../types';
+import { lookupCaseById } from '../utils/caseLookupService';
 import { 
   History, 
   Search, 
@@ -42,25 +43,12 @@ export const ScanHistoryView: React.FC<ScanHistoryViewProps> = ({
       return;
     }
 
-    // Search in history prop first
-    let found = history.find(item => item.id.toUpperCase() === cleanId);
-    if (!found) {
-      try {
-        const raw = localStorage.getItem('trustlens_history');
-        if (raw) {
-          const parsed: AnalysisResult[] = JSON.parse(raw);
-          found = parsed.find(item => item.id.toUpperCase() === cleanId);
-        }
-      } catch (err) {
-        console.warn('History lookup error:', err);
-      }
-    }
-
+    const found = lookupCaseById(cleanId);
     if (found) {
       setLookupFeedback(null);
       onSelectScan(found);
     } else {
-      setLookupFeedback('Không tìm thấy hồ sơ mang mã này trong nhật ký giám định trên thiết bị. Vui lòng kiểm tra lại.');
+      setLookupFeedback('Không tìm thấy hồ sơ mang mã này trong kho hồ sơ TrustLens. Vui lòng kiểm tra lại định dạng mã (VD: TL-182491-R0K3).');
     }
   };
 

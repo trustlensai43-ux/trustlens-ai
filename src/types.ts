@@ -61,6 +61,10 @@ export interface MethodologyBreakdown {
   extractedEvidence: string[];
   aiReasoning: string[];
   unconnectedTelemetry: string[];
+  modelReasoning?: string;
+  deterministicHeuristics?: string;
+  externalRegistries?: string;
+  limitationsDisclaimer?: string;
 }
 
 export interface AnalysisResult {
@@ -164,6 +168,16 @@ export interface ThreatTelemetry {
     pwnedCount?: number;
     emailOrTarget?: string;
     sha1Prefix?: string;
+    confidence?: number;
+    summary?: string;
+  };
+  deterministicTechnicalSignatures?: {
+    summary?: string;
+    findings?: any[];
+  };
+  preAnalysisHeuristicRisk?: {
+    preliminaryScamScore?: number;
+    rationale?: string;
   };
   urlStructuralHeuristics: {
     homoglyph: 'DETECTED' | 'NOT_DETECTED';

@@ -186,88 +186,90 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
     return sanitizeClientPii(raw, { preserveTargetPhone: modality === 'phone' });
   };
 
-  // Submit scan handler
+  // Submit scan handler wrapped in bulletproof try/catch
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setValidationError(null);
-
-    const payload: any = {
-      modality,
-      options: {
-        redactPii,
-      },
-    };
-
-    if (modality === 'text') {
-      const activeText = textInput.trim();
-      if (!activeText) {
-        setValidationError('Vui lòng nhập hoặc dán nội dung tin nhắn cần phân tích.');
-        return;
-      }
-      // Strictly pass active user text, never stale or overridden sample text
-      payload.text = redactPii ? sanitizeClientPii(activeText) : activeText;
-    } else if (modality === 'email') {
-      const activeSender = emailSender.trim();
-      const activeSubject = emailSubject.trim();
-      const activeBody = emailBody.trim();
-      if (!activeBody && !activeSubject) {
-        setValidationError('Vui lòng cung cấp tiêu đề hoặc nội dung thư điện tử.');
-        return;
-      }
-      payload.sender = redactPii ? sanitizeClientPii(activeSender) : activeSender;
-      payload.subject = redactPii ? sanitizeClientPii(activeSubject) : activeSubject;
-      payload.text = redactPii ? sanitizeClientPii(activeBody) : activeBody;
-    } else if (modality === 'phone') {
-      const activePhone = phoneNumber.trim();
-      const activeCaller = callerId.trim();
-      const activeTranscript = phoneTranscript.trim();
-      if (!activePhone && !activeTranscript) {
-        setValidationError('Vui lòng cung cấp số điện thoại hoặc bản ghi lời thoại cuộc gọi.');
-        return;
-      }
-      payload.options.preserveTargetPhone = true;
-      payload.phoneNumber = activePhone;
-      payload.callerId = redactPii ? sanitizeClientPii(activeCaller) : activeCaller;
-      payload.transcript = redactPii ? sanitizeClientPii(activeTranscript) : activeTranscript;
-    } else if (modality === 'url') {
-      const activeUrl = urlInput.trim();
-      if (!activeUrl) {
-        setValidationError('Vui lòng nhập địa chỉ URL trang web hoặc tên miền cần kiểm tra.');
-        return;
-      }
-      payload.url = activeUrl;
-    } else if (modality === 'image') {
-      if (!imageDataBase64) {
-        setValidationError('Vui lòng tải lên tệp hình ảnh hoặc chọn mẫu thử có sẵn.');
-        return;
-      }
-      const activeCaption = imageCaption.trim();
-      payload.imageDataBase64 = imageDataBase64;
-      payload.imageMimeType = imageFile?.type || 'image/jpeg';
-      payload.text = redactPii ? sanitizeClientPii(activeCaption) : activeCaption;
-    } else if (modality === 'video') {
-      const activeTranscript = videoTranscript.trim();
-      if (!activeTranscript && !videoFile) {
-        setValidationError('Vui lòng tải lên tệp video hoặc cung cấp bản ghi lời thoại.');
-        return;
-      }
-      const sanitizedTranscript = redactPii ? sanitizeClientPii(activeTranscript) : activeTranscript;
-      payload.videoTranscript = sanitizedTranscript;
-      payload.text = sanitizedTranscript;
-    }
-
     try {
+      e.preventDefault();
+      setValidationError(null);
+
+      const payload: any = {
+        modality,
+        options: {
+          redactPii,
+        },
+      };
+
+      if (modality === 'text') {
+        const activeText = textInput.trim();
+        if (!activeText) {
+          setValidationError('Vui lòng nhập hoặc dán nội dung tin nhắn cần phân tích.');
+          return;
+        }
+        payload.text = redactPii ? sanitizeClientPii(activeText) : activeText;
+      } else if (modality === 'email') {
+        const activeSender = emailSender.trim();
+        const activeSubject = emailSubject.trim();
+        const activeBody = emailBody.trim();
+        if (!activeBody && !activeSubject) {
+          setValidationError('Vui lòng cung cấp tiêu đề hoặc nội dung thư điện tử.');
+          return;
+        }
+        payload.sender = redactPii ? sanitizeClientPii(activeSender) : activeSender;
+        payload.subject = redactPii ? sanitizeClientPii(activeSubject) : activeSubject;
+        payload.text = redactPii ? sanitizeClientPii(activeBody) : activeBody;
+      } else if (modality === 'phone') {
+        const activePhone = phoneNumber.trim();
+        const activeCaller = callerId.trim();
+        const activeTranscript = phoneTranscript.trim();
+        if (!activePhone && !activeTranscript) {
+          setValidationError('Vui lòng cung cấp số điện thoại hoặc bản ghi lời thoại cuộc gọi.');
+          return;
+        }
+        payload.options.preserveTargetPhone = true;
+        payload.phoneNumber = activePhone;
+        payload.callerId = redactPii ? sanitizeClientPii(activeCaller) : activeCaller;
+        payload.transcript = redactPii ? sanitizeClientPii(activeTranscript) : activeTranscript;
+      } else if (modality === 'url') {
+        const activeUrl = urlInput.trim();
+        if (!activeUrl) {
+          setValidationError('Vui lòng nhập địa chỉ URL trang web hoặc tên miền cần kiểm tra.');
+          return;
+        }
+        payload.url = activeUrl;
+      } else if (modality === 'image') {
+        if (!imageDataBase64) {
+          setValidationError('Vui lòng tải lên tệp hình ảnh hoặc chọn mẫu thử có sẵn.');
+          return;
+        }
+        const activeCaption = imageCaption.trim();
+        payload.imageDataBase64 = imageDataBase64;
+        payload.imageMimeType = imageFile?.type || 'image/jpeg';
+        payload.text = redactPii ? sanitizeClientPii(activeCaption) : activeCaption;
+      } else if (modality === 'video') {
+        const activeTranscript = videoTranscript.trim();
+        if (!activeTranscript && !videoFile) {
+          setValidationError('Vui lòng tải lên tệp video hoặc cung cấp bản ghi lời thoại.');
+          return;
+        }
+        const sanitizedTranscript = redactPii ? sanitizeClientPii(activeTranscript) : activeTranscript;
+        payload.videoTranscript = sanitizedTranscript;
+        payload.text = sanitizedTranscript;
+      }
+
       if (typeof onAnalyze === 'function') {
         await onAnalyze(payload);
       } else {
         await performSafeAnalysis(payload);
       }
-    } catch {
-      // Silently handle offline/preview mode and fallback to analyzeLocally without throwing uncaught console errors
+    } catch (err) {
+      console.warn('Analysis execution notice in UnifiedWorkspace:', err);
       try {
-        await performSafeAnalysis(payload);
-      } catch {
-        // Safe guaranteed execution
+        if (typeof onAnalyze === 'function') {
+          // Fallback attempt
+          await onAnalyze({ modality, text: textInput, options: { redactPii } });
+        }
+      } catch (fallbackErr) {
+        console.warn('Fallback analysis notice:', fallbackErr);
       }
     }
   };
@@ -283,7 +285,7 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
     if (onLookupCaseId) {
       const found = onLookupCaseId(query);
       if (!found) {
-        setLookupFeedback('Không tìm thấy hồ sơ mang mã này trong nhật ký giám định trên thiết bị. Vui lòng kiểm tra lại.');
+        setLookupFeedback('Không tìm thấy hồ sơ mang mã này trong kho hồ sơ TrustLens. Vui lòng kiểm tra lại định dạng mã (VD: TL-182491-R0K3).');
       } else {
         setLookupFeedback(null);
       }

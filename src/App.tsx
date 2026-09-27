@@ -11,12 +11,20 @@ import { OrthogonalityMatrix } from './components/OrthogonalityMatrix';
 import { DataBreachChecker } from './components/DataBreachChecker';
 import { GoldenSecurityRules } from './components/GoldenSecurityRules';
 import { HeroSection } from './components/HeroSection';
-import { AppRoute, getRouteFromHash, navigateToRoute, getIdFromHash } from './utils/routes';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppRoute, getRouteFromHash, navigateToRoute, getIdFromHash, parseHashRoute, getDataFromHash } from './utils/routes';
+import { lookupCaseById, decodeReportFromShareableParam } from './utils/caseLookupService';
 import { performSafeAnalysis } from './utils/analyzeClient';
 import { ShieldCheck, Lock, AlertCircle, ArrowRight, Activity, ShieldAlert, BookOpen, Compass } from 'lucide-react';
 
 export default function App() {
-  const [activeRoute, setActiveRoute] = useState<AppRoute>(() => getRouteFromHash(window.location.hash));
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(() => {
+    try {
+      return getRouteFromHash(typeof window !== 'undefined' ? window.location.hash : '');
+    } catch {
+      return 'home';
+    }
+  });
   const [currentResult, setCurrentResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingModality, setLoadingModality] = useState<string>('text');
@@ -24,58 +32,57 @@ export default function App() {
   const [redactPii, setRedactPii] = useState<boolean>(true);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
 
-  // Check and load deep-link Case ID from URL hash or query params
+  // Check and load deep-link Case ID or shared payload from URL hash
   const checkAndApplyDeepLinkId = (historyList?: AnalysisResult[]) => {
-    const targetId = getIdFromHash(window.location.hash);
-    if (!targetId) return false;
+    try {
+      const rawHash = (typeof window !== 'undefined' ? window.location.hash : '') || '#/';
+      const parsed = parseHashRoute(rawHash);
+      const dataParam = parsed.dataParam || getDataFromHash(rawHash);
 
-    const cleanId = targetId.trim().toUpperCase();
-    const candidateList = historyList || history;
-
-    let record = candidateList.find(item => item.id.toUpperCase() === cleanId);
-    if (!record) {
-      try {
-        const raw = localStorage.getItem('trustlens_history');
-        if (raw) {
-          const parsed: AnalysisResult[] = JSON.parse(raw);
-          record = parsed.find(item => item.id.toUpperCase() === cleanId);
+      // Priority 1: Check compact shared data payload (cross-device instant display)
+      if (dataParam) {
+        const decodedReport = decodeReportFromShareableParam(dataParam);
+        if (decodedReport) {
+          setCurrentResult(decodedReport);
+          saveToHistory(decodedReport);
+          setActiveRoute('scan');
+          return true;
         }
-      } catch (e) {
-        console.warn('Deep link history parse error:', e);
       }
-    }
 
-    if (record) {
-      setCurrentResult(record);
-      setActiveRoute('scan');
-      return true;
+      // Priority 2: Check ID parameter with Universal Case Registry & Reconstruction
+      const idParam = parsed.idParam || getIdFromHash(rawHash);
+      if (idParam) {
+        const found = lookupCaseById(idParam);
+        if (found) {
+          setCurrentResult(found);
+          saveToHistory(found);
+          setActiveRoute('scan');
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('Error in checkAndApplyDeepLinkId:', e);
     }
     return false;
   };
 
-  // Case ID quick lookup handler for UnifiedWorkspace & History
+  // Universal Case ID quick lookup handler for UnifiedWorkspace & History
   const handleLookupCaseId = (lookupId: string): boolean => {
-    const cleanId = lookupId.trim().toUpperCase();
-    if (!cleanId) return false;
+    try {
+      const cleanId = (lookupId || '').trim().toUpperCase();
+      if (!cleanId) return false;
 
-    let record = history.find(item => item.id.toUpperCase() === cleanId);
-    if (!record) {
-      try {
-        const raw = localStorage.getItem('trustlens_history');
-        if (raw) {
-          const parsed: AnalysisResult[] = JSON.parse(raw);
-          record = parsed.find(item => item.id.toUpperCase() === cleanId);
-        }
-      } catch (e) {
-        console.warn('Lookup storage parse error:', e);
+      const record = lookupCaseById(cleanId);
+      if (record) {
+        setCurrentResult(record);
+        saveToHistory(record);
+        setActiveRoute('scan');
+        window.location.hash = `#/scan?id=${cleanId}`;
+        return true;
       }
-    }
-
-    if (record) {
-      setCurrentResult(record);
-      setActiveRoute('scan');
-      window.location.hash = `#/scan?id=${cleanId}`;
-      return true;
+    } catch (e) {
+      console.warn('Error in handleLookupCaseId:', e);
     }
     return false;
   };
@@ -83,10 +90,16 @@ export default function App() {
   // Listen to hashchange events for client-side routing & deep-link IDs
   useEffect(() => {
     const handleHashChange = () => {
-      const route = getRouteFromHash(window.location.hash);
-      setActiveRoute(route);
-      setErrorMessage(null);
-      checkAndApplyDeepLinkId();
+      try {
+        const rawHash = window.location.hash || '#/';
+        const parsed = parseHashRoute(rawHash);
+        setActiveRoute(parsed.route);
+        setErrorMessage(null);
+        checkAndApplyDeepLinkId();
+      } catch (err) {
+        console.warn('Hash change handling notice:', err);
+        setActiveRoute('home');
+      }
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -100,9 +113,13 @@ export default function App() {
   }, [history]);
 
   const navigate = (route: AppRoute) => {
-    setActiveRoute(route);
-    navigateToRoute(route);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      setActiveRoute(route);
+      navigateToRoute(route);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.warn('Navigation notice:', err);
+    }
   };
 
   // Load history & preferences from local storage and resolve deep links
@@ -111,8 +128,11 @@ export default function App() {
       const savedHistory = localStorage.getItem('trustlens_history');
       let loadedHistory: AnalysisResult[] = [];
       if (savedHistory) {
-        loadedHistory = JSON.parse(savedHistory);
-        setHistory(loadedHistory);
+        const parsed = JSON.parse(savedHistory);
+        if (Array.isArray(parsed)) {
+          loadedHistory = parsed;
+          setHistory(loadedHistory);
+        }
       }
       const savedPiiPref = localStorage.getItem('trustlens_pii_pref');
       if (savedPiiPref !== null) {
@@ -127,8 +147,10 @@ export default function App() {
 
   // Save history to local storage
   const saveToHistory = (result: AnalysisResult) => {
+    if (!result || !result.id) return;
     setHistory((prev) => {
-      const updated = [result, ...prev.filter((item) => item.id !== result.id)].slice(0, 50);
+      const prevArray = Array.isArray(prev) ? prev : [];
+      const updated = [result, ...prevArray.filter((item) => item?.id !== result.id)].slice(0, 50);
       try {
         localStorage.setItem('trustlens_history', JSON.stringify(updated));
       } catch (e) {
@@ -159,16 +181,19 @@ export default function App() {
   // Run analysis pipeline
   const handleAnalyze = async (payload: any) => {
     setIsLoading(true);
-    setLoadingModality(payload.modality || 'text');
+    setLoadingModality(payload?.modality || 'text');
     setErrorMessage(null);
 
     try {
       const resultData = await performSafeAnalysis(payload);
-      setCurrentResult(resultData);
-      saveToHistory(resultData);
-      navigate('scan'); // Navigate to /#/scan to display full result
-    } catch {
-      // Bulletproof failsafe to guarantee zero uncaught errors or unhandled rejections
+      if (resultData) {
+        setCurrentResult(resultData);
+        saveToHistory(resultData);
+        navigate('scan'); // Navigate to /#/scan to display full result
+      }
+    } catch (err) {
+      console.error('Failed to run analysis:', err);
+      setErrorMessage('Đã xảy ra sự cố trong quá trình phân tích. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -239,153 +264,166 @@ export default function App() {
           </div>
         )}
 
-        {/* 1. HOME ROUTE (/#/) */}
-        {activeRoute === 'home' && (
-          <div className="space-y-8 md:space-y-12">
-            <HeroSection
-              onStartAnalysis={() => navigate('scan')}
-              onViewScenarios={() => navigate('scenarios')}
-            />
-
-            {/* Quick action bar leading directly to scan workspace */}
-            <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-gradient-to-r from-sky-950/40 via-indigo-950/30 to-purple-950/40 border border-indigo-500/30 shadow-2xl shadow-black/60 backdrop-blur-xl border-t border-t-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="space-y-1 text-center sm:text-left">
-                <h3 className="text-base font-semibold text-white tracking-tight flex items-center justify-center sm:justify-start gap-2">
-                  <Activity className="w-4 h-4 text-sky-400" />
-                  <span>Sẵn Sàng Kiểm Tra Một Tin Nhắn Hoặc Đường Link Nghi Vấn?</span>
-                </h3>
-                <p className="text-xs text-slate-300 font-normal">
-                  Chuyển sang không gian làm việc chuyên biệt để dán nội dung hoặc tải ảnh màn hình kiểm tra ngay.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('scan')}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-xs whitespace-nowrap flex items-center gap-2 shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5 hover:shadow-sky-500/20 active:translate-y-0 transition-all cursor-pointer"
-              >
-                <span>Mở Trình Kiểm Tra Ngay</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 2. SCAN & ANALYSIS WORKSPACE ROUTE (/#/scan) - Clean & Focused Workspace */}
-        {activeRoute === 'scan' && (
-          <div className="space-y-6 md:space-y-8">
-            {isLoading ? (
-              <AnalysisLoadingState modality={loadingModality} />
-            ) : currentResult ? (
-              <AnalysisResultView
-                result={currentResult}
-                onReset={() => setCurrentResult(null)}
+        <ErrorBoundary onReset={() => { setCurrentResult(null); setActiveRoute('scan'); }}>
+          {/* 1. HOME ROUTE (/#/) */}
+          {activeRoute === 'home' && (
+            <div className="space-y-8 md:space-y-12">
+              <HeroSection
+                onStartAnalysis={() => {
+                  setCurrentResult(null);
+                  navigate('scan');
+                }}
+                onViewScenarios={() => navigate('scenarios')}
               />
-            ) : (
-              <UnifiedWorkspace
-                onAnalyze={handleAnalyze}
-                isLoading={isLoading}
-                redactPii={redactPii}
-                setRedactPii={handleTogglePii}
-                onLookupCaseId={handleLookupCaseId}
+
+              {/* Quick action bar leading directly to scan workspace */}
+              <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-gradient-to-r from-sky-950/40 via-indigo-950/30 to-purple-950/40 border border-indigo-500/30 shadow-2xl shadow-black/60 backdrop-blur-xl border-t border-t-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1 text-center sm:text-left">
+                  <h3 className="text-base font-semibold text-white tracking-tight flex items-center justify-center sm:justify-start gap-2">
+                    <Activity className="w-4 h-4 text-sky-400" />
+                    <span>Sẵn Sàng Kiểm Tra Một Tin Nhắn Hoặc Đường Link Nghi Vấn?</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 font-normal">
+                    Chuyển sang không gian làm việc chuyên biệt để dán nội dung hoặc tải ảnh màn hình kiểm tra ngay.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentResult(null);
+                    navigate('scan');
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-xs whitespace-nowrap flex items-center gap-2 shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5 hover:shadow-sky-500/20 active:translate-y-0 transition-all cursor-pointer"
+                >
+                  <span>Mở Trình Kiểm Tra Ngay</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. SCAN & ANALYSIS WORKSPACE ROUTE (/#/scan) - Clean & Focused Workspace */}
+          {activeRoute === 'scan' && (
+            <div className="space-y-6 md:space-y-8">
+              <ErrorBoundary onReset={() => { setCurrentResult(null); }}>
+                {isLoading ? (
+                  <AnalysisLoadingState modality={loadingModality} />
+                ) : currentResult ? (
+                  <AnalysisResultView
+                    result={currentResult}
+                    onReset={() => {
+                      setCurrentResult(null);
+                      window.location.hash = '#/scan';
+                    }}
+                  />
+                ) : (
+                  <UnifiedWorkspace
+                    onAnalyze={handleAnalyze}
+                    isLoading={isLoading}
+                    redactPii={redactPii}
+                    setRedactPii={handleTogglePii}
+                    onLookupCaseId={handleLookupCaseId}
+                  />
+                )}
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {/* 3. DATA BREACH CHECKER ROUTE (/#/breach-check) */}
+          {activeRoute === 'breach' && (
+            <div className="space-y-6 md:space-y-8">
+              <DataBreachChecker />
+            </div>
+          )}
+
+          {/* 4. DUAL-AXIS ORTHOGONAL MATRIX ROUTE (/#/matrix) */}
+          {activeRoute === 'matrix' && (
+            <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto">
+              <div className="border-b border-slate-800/80 pb-4">
+                <h2 className="text-lg md:text-xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                  <Compass className="w-5 h-5 text-indigo-400" />
+                  <span>Mô Hình Ma Trận Trực Giao Độc Lập</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 font-normal leading-relaxed">
+                  Giải thích vì sao nội dung do AI tạo ra không đồng nghĩa với lừa đảo, và vì sao văn bản do con người viết tay vẫn có thể là bẫy thao túng tinh vi.
+                </p>
+              </div>
+
+              <OrthogonalityMatrix
+                scamScore={currentResult?.scamRisk?.score ?? 85}
+                aiScore={currentResult?.aiProbability?.score ?? 15}
+                activeTitle={currentResult?.quadrantClassification?.title || 'Góc Phần Tư 3: Lừa Đảo Do Con Người Soạn Thảo'}
+                activeExplanation={currentResult?.quadrantClassification?.explanation || 'Các vụ lừa đảo qua mạng truyền thống, mạo danh ngân hàng hoặc tống tiền do tội phạm con người trực tiếp thực hiện.'}
               />
-            )}
-          </div>
-        )}
 
-        {/* 3. DATA BREACH CHECKER ROUTE (/#/breach-check) */}
-        {activeRoute === 'breach' && (
-          <div className="space-y-6 md:space-y-8">
-            <DataBreachChecker />
-          </div>
-        )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
+                  <span className="font-mono text-xs font-semibold text-emerald-400 block mb-1">
+                    Góc 1: Con Người Lành Tính (Benign Human)
+                  </span>
+                  <p className="text-sm text-slate-400 leading-relaxed font-normal">
+                    Email, tin nhắn và tài liệu chân thực thường ngày do con người viết với tên miền xác thực và ý đồ giao tiếp minh bạch.
+                  </p>
+                </div>
 
-        {/* 4. DUAL-AXIS ORTHOGONAL MATRIX ROUTE (/#/matrix) */}
-        {activeRoute === 'matrix' && (
-          <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto">
-            <div className="border-b border-slate-800/80 pb-4">
-              <h2 className="text-lg md:text-xl font-bold text-white tracking-tight flex items-center gap-2.5">
-                <Compass className="w-5 h-5 text-indigo-400" />
-                <span>Mô Hình Ma Trận Trực Giao Độc Lập</span>
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 font-normal leading-relaxed">
-                Giải thích vì sao nội dung do AI tạo ra không đồng nghĩa với lừa đảo, và vì sao văn bản do con người viết tay vẫn có thể là bẫy thao túng tinh vi.
-              </p>
-            </div>
+                <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
+                  <span className="font-mono text-xs font-semibold text-slate-200 block mb-1">
+                    Góc 2: AI Hỗ Trợ Lành Tính (Benign AI)
+                  </span>
+                  <p className="text-sm text-slate-400 leading-relaxed font-normal">
+                    Văn bản tóm tắt tự động, thư hỗ trợ khách hàng hoặc bài viết dịch thuật do AI hỗ trợ soạn thảo mà không chứa ý đồ lừa gạt.
+                  </p>
+                </div>
 
-            <OrthogonalityMatrix
-              scamScore={currentResult ? currentResult.scamRisk.score : 85}
-              aiScore={currentResult ? currentResult.aiProbability.score : 15}
-              activeTitle={currentResult ? currentResult.quadrantClassification.title : 'Góc Phần Tư 3: Lừa Đảo Do Con Người Soạn Thảo'}
-              activeExplanation={currentResult ? currentResult.quadrantClassification.explanation : 'Các vụ lừa đảo qua mạng truyền thống, mạo danh ngân hàng hoặc tống tiền do tội phạm con người trực tiếp thực hiện.'}
-            />
+                <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
+                  <span className="font-mono text-xs font-semibold text-rose-400 block mb-1">
+                    Góc 3: Lừa Đảo Do Con Người (Human Scam)
+                  </span>
+                  <p className="text-sm text-slate-400 leading-relaxed font-normal">
+                    Các kịch bản tống tiền, mạo danh cơ quan công quyền, nhắn tin nợ cước do con người điều khiển không sử dụng công nghệ AI tạo sinh.
+                  </p>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
-                <span className="font-mono text-xs font-semibold text-emerald-400 block mb-1">
-                  Góc 1: Con Người Lành Tính (Benign Human)
-                </span>
-                <p className="text-sm text-slate-400 leading-relaxed font-normal">
-                  Email, tin nhắn và tài liệu chân thực thường ngày do con người viết với tên miền xác thực và ý đồ giao tiếp minh bạch.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
-                <span className="font-mono text-xs font-semibold text-slate-200 block mb-1">
-                  Góc 2: AI Hỗ Trợ Lành Tính (Benign AI)
-                </span>
-                <p className="text-sm text-slate-400 leading-relaxed font-normal">
-                  Văn bản tóm tắt tự động, thư hỗ trợ khách hàng hoặc bài viết dịch thuật do AI hỗ trợ soạn thảo mà không chứa ý đồ lừa gạt.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
-                <span className="font-mono text-xs font-semibold text-rose-400 block mb-1">
-                  Góc 3: Lừa Đảo Do Con Người (Human Scam)
-                </span>
-                <p className="text-sm text-slate-400 leading-relaxed font-normal">
-                  Các kịch bản tống tiền, mạo danh cơ quan công quyền, nhắn tin nợ cước do con người điều khiển không sử dụng công nghệ AI tạo sinh.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
-                <span className="font-mono text-xs font-semibold text-amber-400 block mb-1">
-                  Góc 4: Lừa Đảo Có AI Hỗ Trợ (AI Scam)
-                </span>
-                <p className="text-sm text-slate-400 leading-relaxed font-normal">
-                  Chiến dịch phishing tự động hóa quy mô lớn, video deepfake mạo danh lãnh đạo hoặc giả giọng nói người thân gọi điện cầu cứu.
-                </p>
+                <div className="p-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-slate-700/90 shadow-2xl shadow-black/60 border-t border-t-white/10 transition-colors duration-200">
+                  <span className="font-mono text-xs font-semibold text-amber-400 block mb-1">
+                    Góc 4: Lừa Đảo Có AI Hỗ Trợ (AI Scam)
+                  </span>
+                  <p className="text-sm text-slate-400 leading-relaxed font-normal">
+                    Chiến dịch phishing tự động hóa quy mô lớn, video deepfake mạo danh lãnh đạo hoặc giả giọng nói người thân gọi điện cầu cứu.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 5. THREAT SANDBOX ROUTE (/#/scenarios) */}
-        {activeRoute === 'scenarios' && (
-          <div className="space-y-6 md:space-y-8">
-            <ThreatSandbox onLoadIntoWorkspace={handleLoadFromSandbox} />
-          </div>
-        )}
+          {/* 5. THREAT SANDBOX ROUTE (/#/scenarios) */}
+          {activeRoute === 'scenarios' && (
+            <div className="space-y-6 md:space-y-8">
+              <ThreatSandbox onLoadIntoWorkspace={handleLoadFromSandbox} />
+            </div>
+          )}
 
-        {/* 6. SCAN HISTORY ROUTE (/#/history) */}
-        {activeRoute === 'history' && (
-          <div className="space-y-6 md:space-y-8">
-            <ScanHistoryView
-              history={history}
-              onSelectScan={(scan) => {
-                setCurrentResult(scan);
-                navigate('scan');
-              }}
-              onClearHistory={handleClearHistory}
-            />
-          </div>
-        )}
+          {/* 6. SCAN HISTORY ROUTE (/#/history) */}
+          {activeRoute === 'history' && (
+            <div className="space-y-6 md:space-y-8">
+              <ScanHistoryView
+                history={history}
+                onSelectScan={(scan) => {
+                  setCurrentResult(scan);
+                  navigate('scan');
+                }}
+                onClearHistory={handleClearHistory}
+              />
+            </div>
+          )}
 
-        {/* 7. METHODOLOGY & STANDARDS ROUTE (/#/methodology) */}
-        {activeRoute === 'methodology' && (
-          <div className="space-y-6 md:space-y-8">
-            <MethodologyView />
-          </div>
-        )}
+          {/* 7. METHODOLOGY & STANDARDS ROUTE (/#/methodology) */}
+          {activeRoute === 'methodology' && (
+            <div className="space-y-6 md:space-y-8">
+              <MethodologyView />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Persistent Critical Safety Advisories: Golden Security Rules */}
