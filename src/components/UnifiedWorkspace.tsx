@@ -20,7 +20,8 @@ import {
   EyeOff,
   Filter,
   AlertTriangle,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 
 interface UnifiedWorkspaceProps {
@@ -113,14 +114,35 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
     }
   };
 
-  // Image upload handler with base64 conversion
+  // Toast message state for active visual warnings
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(prev => (prev === msg ? null : prev));
+    }, 4500);
+  };
+
+  // Image upload handler with strict client-side file guardrails (max 10MB, jpeg/png/webp)
   const handleImageFileChange = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setValidationError('Vui lòng tải lên tệp hình ảnh hợp lệ (PNG, JPEG, WebP).');
+    const validImageMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validImageMimes.includes(file.type)) {
+      const err = 'Định dạng tệp hình ảnh không được hỗ trợ. Vui lòng tải lên tệp ảnh hợp lệ (PNG, JPEG, WebP).';
+      setValidationError(err);
+      showToast(err);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setImageFile(null);
+      setImageDataBase64('');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setValidationError('Kích thước tệp ảnh vượt quá giới hạn 10MB.');
+      const err = `Kích thước tệp ảnh vượt quá giới hạn 10MB (Kích thước hiện tại: ${(file.size / (1024 * 1024)).toFixed(1)}MB). Vui lòng chọn tệp nhỏ hơn.`;
+      setValidationError(err);
+      showToast(err);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setImageFile(null);
+      setImageDataBase64('');
       return;
     }
 
@@ -135,14 +157,25 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Video upload handler
+  // Video upload handler with strict client-side validation (max 50MB, mp4/quicktime/x-msvideo)
   const handleVideoFileChange = (file: File) => {
-    if (!file.type.startsWith('video/')) {
-      setValidationError('Vui lòng tải lên tệp video hợp lệ (MP4, WebM, MOV).');
+    const validVideoMimes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    if (!validVideoMimes.includes(file.type)) {
+      const err = 'Định dạng tệp video không hợp lệ. Vui lòng tải lên tệp video chuẩn (MP4, QuickTime MOV, hoặc AVI).';
+      setValidationError(err);
+      showToast(err);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      setVideoFile(null);
+      setVideoPreviewUrl('');
       return;
     }
-    if (file.size > 25 * 1024 * 1024) {
-      setValidationError('Kích thước tệp video vượt quá giới hạn 25MB.');
+    if (file.size > 50 * 1024 * 1024) {
+      const err = `Kích thước tệp video vượt quá giới hạn 50MB (Kích thước hiện tại: ${(file.size / (1024 * 1024)).toFixed(1)}MB). Vui lòng tải tệp ngắn hơn.`;
+      setValidationError(err);
+      showToast(err);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      setVideoFile(null);
+      setVideoPreviewUrl('');
       return;
     }
 
@@ -231,10 +264,25 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
         payload.transcript = redactPii ? sanitizeClientPii(activeTranscript) : activeTranscript;
       } else if (modality === 'url') {
         const activeUrl = urlInput.trim();
+        const invalidUrlMsg = 'Vui lòng nhập đúng định dạng tên miền hoặc liên kết website hợp lệ (Ví dụ: example.com hoặc https://...)';
         if (!activeUrl) {
-          setValidationError('Vui lòng nhập địa chỉ URL trang web hoặc tên miền cần kiểm tra.');
+          setValidationError(invalidUrlMsg);
+          showToast(invalidUrlMsg);
           return;
         }
+
+        // Strict Domain/URL validation regex
+        const isValidUrlOrDomain = (val: string) => {
+          const trimmed = val.trim();
+          return /^((https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?)$/i.test(trimmed);
+        };
+
+        if (!isValidUrlOrDomain(activeUrl)) {
+          setValidationError(invalidUrlMsg);
+          showToast(invalidUrlMsg);
+          return;
+        }
+
         payload.url = activeUrl;
       } else if (modality === 'image') {
         if (!imageDataBase64) {
@@ -457,9 +505,19 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
         <div className="p-5 md:p-6 space-y-4">
           {/* Validation Alert */}
           {validationError && (
-            <div className="p-3.5 rounded-lg bg-rose-950/30 border border-rose-800/40 text-rose-300 text-xs flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span className="leading-relaxed">{validationError}</span>
+            <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-700/60 text-rose-200 text-xs flex items-start justify-between gap-3 shadow-lg shadow-rose-950/30 backdrop-blur-xl animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed font-medium">{validationError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationError(null)}
+                className="text-rose-400 hover:text-rose-200 p-0.5 rounded transition-colors cursor-pointer"
+                title="Đóng cảnh báo"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -634,6 +692,12 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
                 Tải lên Ảnh chụp màn hình, Giấy tờ cam kết, hoặc Ảnh chân dung AI để sàng lọc
               </label>
 
+              {/* Transparent Media Pipeline Label */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-950/30 border border-sky-800/50 text-sky-300 text-xs font-mono">
+                <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0"></span>
+                <span>Quy trình thử nghiệm: Phân tích chữ OCR &amp; Siêu dữ liệu Metadata EXIF cục bộ.</span>
+              </div>
+
               {/* Media Privacy Notice */}
               <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-950/20 border border-amber-800/40 text-amber-300 text-xs">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
@@ -723,6 +787,12 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
                 Tải lên Đoạn Video ngắn / Sàng lọc Kịch bản Deepfake & Giọng nói Tổng hợp
               </label>
 
+              {/* Transparent Media Pipeline Label */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-950/30 border border-sky-800/50 text-sky-300 text-xs font-mono">
+                <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0"></span>
+                <span>Quy trình thử nghiệm: Phân tích chữ OCR &amp; Siêu dữ liệu Metadata EXIF cục bộ.</span>
+              </div>
+
               {/* Media Privacy Notice */}
               <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-950/20 border border-amber-800/40 text-amber-300 text-xs">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
@@ -751,7 +821,7 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept="video/mp4,video/webm,video/quicktime"
+                  accept="video/mp4,video/quicktime,video/x-msvideo"
                   className="hidden"
                   onChange={(e) => {
                     if (e.target.files?.[0]) handleVideoFileChange(e.target.files[0]);
@@ -779,7 +849,7 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
                       Kéo thả tệp video vào đây, hoặc <span className="text-sky-400 underline">chọn tệp từ máy tính</span>
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      Định dạng MP4, WebM, MOV (Tối đa 25MB). Phân tích nhịp điệu phát âm, ngữ cảnh ép buộc tài chính và dấu hiệu khuôn mặt nhân tạo.
+                      Định dạng MP4, QuickTime MOV, AVI (Tối đa 50MB). Phân tích nhịp điệu phát âm, ngữ cảnh ép buộc tài chính và dấu hiệu khuôn mặt nhân tạo.
                     </p>
                   </div>
                 )}
@@ -876,6 +946,14 @@ export const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Floating Warning Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-amber-950/95 border border-amber-600/80 text-amber-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+          <span className="text-xs font-medium leading-relaxed">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

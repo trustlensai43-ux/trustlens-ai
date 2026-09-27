@@ -313,6 +313,16 @@ export const DataBreachChecker: React.FC = () => {
     step4: false,
   });
 
+  // Toast notification state for visual feedback on empty lookups
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(prev => (prev === msg ? null : prev));
+    }, 4500);
+  };
+
   const completedTasksCount = Object.values(playbookTasks).filter(Boolean).length;
 
   const togglePlaybookTask = (taskId: string) => {
@@ -358,12 +368,16 @@ export const DataBreachChecker: React.FC = () => {
     if (e) e.preventDefault();
     const cleanEmail = (customEmail !== undefined ? customEmail : emailInput).trim();
     if (!cleanEmail) {
-      setEmailError('Vui lòng nhập địa chỉ email hợp lệ.');
+      const err = 'Vui lòng nhập địa chỉ Email cần đối soát rò rỉ dữ liệu.';
+      setEmailError(err);
+      showToast(err);
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
-      setEmailError('Vui lòng nhập đúng định dạng địa chỉ email (ví dụ: name@domain.com).');
+      const err = 'Vui lòng nhập đúng định dạng địa chỉ email (ví dụ: name@domain.com).';
+      setEmailError(err);
+      showToast(err);
       return;
     }
     setEmailError(null);
@@ -383,12 +397,16 @@ export const DataBreachChecker: React.FC = () => {
     if (e) e.preventDefault();
     const cleanPhone = (customPhone !== undefined ? customPhone : phoneInput).trim();
     if (!cleanPhone) {
-      setPhoneError('Vui lòng nhập số điện thoại cần kiểm tra.');
+      const err = 'Vui lòng nhập số điện thoại cần kiểm tra.';
+      setPhoneError(err);
+      showToast(err);
       return;
     }
     const digitsOnly = cleanPhone.replace(/\D/g, '');
     if (digitsOnly.length < 9 || digitsOnly.length > 12) {
-      setPhoneError('Số điện thoại không hợp lệ. Vui lòng nhập từ 9 đến 11 chữ số.');
+      const err = 'Số điện thoại không hợp lệ. Vui lòng nhập từ 9 đến 11 chữ số.';
+      setPhoneError(err);
+      showToast(err);
       return;
     }
     setPhoneError(null);
@@ -407,7 +425,9 @@ export const DataBreachChecker: React.FC = () => {
   const handleRunAudit = async (overrideText?: string) => {
     const textToAnalyze = overrideText || inputText;
     if (!textToAnalyze.trim()) {
-      setAuditError('Vui lòng nhập nội dung văn bản hoặc chọn mẫu thử để kiểm tra.');
+      const err = 'Vui lòng nhập nội dung văn bản hoặc chọn mẫu thử để kiểm tra.';
+      setAuditError(err);
+      showToast(err);
       return;
     }
 
@@ -437,10 +457,12 @@ export const DataBreachChecker: React.FC = () => {
   };
 
   // Execute k-Anonymity Credential Check (Panel A - Password)
-  const handleCheckCredential = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordInput) {
-      setBreachError('Vui lòng nhập mật khẩu cần kiểm tra.');
+  const handleCheckCredential = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!passwordInput.trim()) {
+      const err = 'Vui lòng nhập mật khẩu cần đối soát an toàn k-Anonymity.';
+      setBreachError(err);
+      showToast(err);
       return;
     }
 
@@ -816,7 +838,7 @@ export const DataBreachChecker: React.FC = () => {
                         ) : (
                           <>
                             <Search className="w-3.5 h-3.5" />
-                            <span>Phân Tích & Đối Soát Rò Rỉ</span>
+                            <span>Kiểm Tra Ngay</span>
                           </>
                         )}
                       </button>
@@ -1223,8 +1245,8 @@ export const DataBreachChecker: React.FC = () => {
                     <button
                       type="submit"
                       id="btn-submit-password-check"
-                      disabled={isCheckingBreach || !passwordInput}
-                      className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                      disabled={isCheckingBreach}
+                      className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                     >
                       {isCheckingBreach ? (
                         <>
@@ -1234,7 +1256,7 @@ export const DataBreachChecker: React.FC = () => {
                       ) : (
                         <>
                           <Search className="w-3.5 h-3.5" />
-                          <span>Đối Soát Mật Khẩu An Toàn</span>
+                          <span>Kiểm Tra Ngay</span>
                         </>
                       )}
                     </button>
@@ -2296,6 +2318,14 @@ export const DataBreachChecker: React.FC = () => {
           Nguồn tham chiếu dữ liệu: <a href="https://haveibeenpwned.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-200 underline">Have I Been Pwned</a> • <a href="https://khonggianmang.vn" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-200 underline">NCSC</a> • <a href="https://cybernews.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-200 underline">Cybernews</a>
         </div>
       </div>
+
+      {/* Floating Warning Toast on Empty Lookups */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-amber-950/95 border border-amber-600/80 text-amber-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+          <span className="text-xs font-medium leading-relaxed">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };
