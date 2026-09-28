@@ -56,13 +56,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               src="https://i.postimg.cc/sXwntWVn/2a-Obo-R1a-Ady-R4p-MWLfu-Cr-D8AB9LHFOPAN7JSzj-N2.jpg" 
               alt="TrustLens AI Cyber Shield & Lens Logo" 
               referrerPolicy="no-referrer"
-              crossOrigin="anonymous"
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (!target.src.endsWith('/logo.png')) {
-                  target.src = '/logo.png';
-                }
-              }}
               className="relative w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_0_20px_rgba(56,189,248,0.6)] rounded-xl transition-transform duration-300 group-hover:scale-105"
             />
           </div>

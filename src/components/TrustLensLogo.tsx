@@ -1,7 +1,4 @@
-import React, { useState } from 'react';
-
-const REAL_LOGO_URL = 'https://i.postimg.cc/sXwntWVn/2a-Obo-R1a-Ady-R4p-MWLfu-Cr-D8AB9LHFOPAN7JSzj-N2.jpg';
-const LOCAL_LOGO_FALLBACK = '/logo.png';
+import React from 'react';
 
 interface LogoProps {
   className?: string;
@@ -16,23 +13,16 @@ export const TrustLensLogo: React.FC<LogoProps> = ({
   size = 'md',
   iconOnly = false
 }) => {
-  const [imgSrc, setImgSrc] = useState(REAL_LOGO_URL);
   const dim = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-16 h-16' : 'w-10 h-10';
   const shouldShowText = showText && !iconOnly;
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <img 
-        src={imgSrc} 
-        alt="TrustLens AI Cyber Shield & Lens Logo" 
+        src="https://i.postimg.cc/sXwntWVn/2a-Obo-R1a-Ady-R4p-MWLfu-Cr-D8AB9LHFOPAN7JSzj-N2.jpg" 
+        alt="TrustLens AI Logo" 
         referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
-        onError={() => {
-          if (imgSrc !== LOCAL_LOGO_FALLBACK) {
-            setImgSrc(LOCAL_LOGO_FALLBACK);
-          }
-        }}
-        className={`${dim} object-contain drop-shadow-[0_0_20px_rgba(56,189,248,0.6)] rounded-xl`}
+        className={`${dim} object-contain rounded-lg drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]`}
       />
       {shouldShowText && (
         <div className="flex items-center gap-1.5">
