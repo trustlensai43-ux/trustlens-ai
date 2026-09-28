@@ -12,6 +12,7 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { AppRoute, ROUTE_HASHES, navigateToRoute } from '../utils/routes';
+import { TrustLensLogo } from './TrustLensLogo';
 
 interface NavbarProps {
   activeRoute: AppRoute;
@@ -57,17 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0" 
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800/90 flex items-center justify-center text-zinc-200 group-hover:border-sky-500/60 transition-all duration-200 shadow-md shadow-black/40 border-t border-t-white/10 group-hover:scale-105">
-              <ShieldCheck className="w-4 h-4 text-sky-400 stroke-[2.2]" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm sm:text-base text-white tracking-tight">
-                TrustLens<span className="text-sky-400 font-extrabold">.AI</span>
-              </span>
-              <span className="px-1.5 py-0.5 text-[10px] font-mono tracking-tight text-slate-400 bg-slate-900/90 border border-slate-800 rounded font-semibold">
-                v2.0
-              </span>
-            </div>
+            <TrustLensLogo size="sm" />
           </a>
 
           {/* Desktop Navigation Tabs */}

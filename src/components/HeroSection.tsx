@@ -48,12 +48,30 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
       {/* 1. DYNAMIC HERO HEADER */}
       <div className="text-center max-w-4xl mx-auto px-4 space-y-6">
-        {/* Top Badge Pill with pulsating dot */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-indigo-500/30 shadow-lg shadow-indigo-950/40 backdrop-blur-xl border-t border-t-white/10">
-          <span className="text-sm">🛡️</span>
-          <span className="text-xs font-semibold text-slate-200 tracking-wide">
-            Nền Tảng Thẩm Định An Toàn Số Độc Lập
-          </span>
+        {/* Official Brand Emblem & Top Badge */}
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div className="relative group">
+            <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-sky-500/30 to-cyan-500/30 blur-xl group-hover:blur-2xl transition-all duration-300" />
+            <img 
+              src="https://i.postimg.cc/sXwntWVn/2a-Obo-R1a-Ady-R4p-MWLfu-Cr-D8AB9LHFOPAN7JSzj-N2.jpg" 
+              alt="TrustLens AI Cyber Shield & Lens Logo" 
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.endsWith('/logo.png')) {
+                  target.src = '/logo.png';
+                }
+              }}
+              className="relative w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_0_20px_rgba(56,189,248,0.6)] rounded-xl transition-transform duration-300 group-hover:scale-105"
+            />
+          </div>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-indigo-500/30 shadow-lg shadow-indigo-950/40 backdrop-blur-xl border-t border-t-white/10">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-200 tracking-wide">
+              TrustLens AI • Nền Tảng Thẩm Định An Toàn Số Độc Lập v2.0
+            </span>
+          </div>
         </div>
 
         {/* Main Headline with Modern Gradient and Ambient Radiance */}

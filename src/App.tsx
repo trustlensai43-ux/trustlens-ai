@@ -11,6 +11,7 @@ import { OrthogonalityMatrix } from './components/OrthogonalityMatrix';
 import { DataBreachChecker } from './components/DataBreachChecker';
 import { GoldenSecurityRules } from './components/GoldenSecurityRules';
 import { HeroSection } from './components/HeroSection';
+import { TrustLensLogo } from './components/TrustLensLogo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppRoute, getRouteFromHash, navigateToRoute, getIdFromHash, parseHashRoute, getDataFromHash } from './utils/routes';
 import { lookupCaseById, decodeReportFromShareableParam } from './utils/caseLookupService';
@@ -434,10 +435,12 @@ export default function App() {
       {/* Understated, Ultra-Refined Footer */}
       <footer id="footer" className="border-t border-slate-800/80 bg-[#080c14] mt-12 py-6 no-print transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-sky-400 stroke-[2]" />
-            <span className="font-semibold text-slate-200">TrustLens AI</span>
-            <span>• Nền tảng phân tích rủi ro số & sàng lọc đa phương thức</span>
+          <div className="flex items-center gap-3">
+            <TrustLensLogo size="sm" showText={false} />
+            <div>
+              <span className="font-semibold text-slate-200">TrustLens AI</span>
+              <span className="text-slate-400"> • Nền tảng phân tích rủi ro số & sàng lọc đa phương thức</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] font-mono">
